@@ -1,0 +1,16 @@
+language: rust
+rust:
+    - stable
+    - 1.40.0  # Min Rust Version
+    - beta
+    - nightly
+
+cache:
+    cargo: true
+matrix:
+    include:
+        - env: GHP_UPLOAD_VERSION=0.3.2
+    install:
+        - cargo install --version $GHP_UPLOAD_VERSION cargo-ghp-upload
+    script:
+        - cargo doc --verbose --no-deps && cargo ghp-upload -vv
