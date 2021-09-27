@@ -4,7 +4,7 @@
 //! ```
 //! use bitcask::log::*;
 //!
-//! let mut writer = Writer::new("/tmp/yoted".to_string()).expect("Should open a writer");
+//! let mut writer = Writer::new("/tmp/db".to_string()).expect("Should open a writer");
 //!
 //! let key = "Hello".as_bytes().to_vec();
 //! let value = "Yoted".as_bytes().to_vec();
@@ -215,13 +215,12 @@ pub struct Writer {
 
 impl Writer {
     pub fn new(directory: String) -> Result<Self, Box<dyn std::error::Error>> {
-        let mut file = OpenOptions::new()
+        let file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
+            .truncate(true)
             .open(&directory)?;
-
-        let _ = file.seek(SeekFrom::Start(0));
 
         // TODO: Reconstruct the data from disk
         // TODO: WTF to do here lol
@@ -357,7 +356,7 @@ mod tests {
 
     #[test]
     fn writer_crud() {
-        let mut writer = Writer::new("/tmp/yoted".to_string()).expect("Should open a writer");
+        let mut writer = Writer::new("/tmp/db".to_string()).expect("Should open a writer");
 
         let key = "Hello".as_bytes().to_vec();
         let value = "Yoted".as_bytes().to_vec();
@@ -367,14 +366,12 @@ mod tests {
         writer.insert(entry).expect("Can insert an entry");
 
         // Insert a new index
-        entry = Entry::new(key.clone(), value.clone());
-        writer.insert(entry.clone()).expect("Can insert another entry");
-
-        // This should be ignored because it's the same value, maybe this is a bad idea?
         entry = Entry::new(key.clone(), value2.clone());
         writer.insert(entry.clone()).expect("Can insert another entry");
 
-        println!("{:?}", writer.index.lock().unwrap());
+        // // This should be ignored because it's the same value, maybe this is a bad idea?
+        entry = Entry::new(key.clone(), value2.clone());
+        writer.insert(entry.clone()).expect("Can insert another entry");
 
         // Get the newest version of the entry
         let found_entry = writer.get(key.clone()).expect("Found the updated key from our log file");
