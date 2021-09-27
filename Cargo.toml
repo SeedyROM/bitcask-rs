@@ -12,7 +12,6 @@ lazy_static = "1.4.0"
 version = "1.12.0"
 features = ["full"]
 
-
 # Commit and push hooks
 [dev-dependencies.cargo-husky]
 version = "1"

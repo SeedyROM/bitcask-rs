@@ -13,14 +13,7 @@
 //! ````
 
 use core::fmt;
-use std::{
-    collections::HashMap,
-    convert::TryInto,
-    error::Error,
-    fs::{File, OpenOptions},
-    io::{Read, Seek, Write},
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, convert::TryInto, error::Error, fs::{File, OpenOptions}, io::{Read, Seek, Write}, sync::{Arc, Mutex}};
 
 use crc::{Crc, CRC_64_ECMA_182};
 
@@ -239,28 +232,48 @@ impl Writer {
         let mut index = self.index.lock().unwrap();
         let mut file = self.file.lock().unwrap();
 
-        // let data = entry.as_bytes();
-        // index.update("Hello".as_bytes().to_vec(), IndexValue::new(0, 0, 0, data.len()));
-        // file.write_all(&entry.clone().as_bytes()).unwrap();
-
         match index.lookup(entry.key.clone()) {
             Ok(value) => {
+                // Seek to the found entry from the index
                 let _ = file
                     .seek(std::io::SeekFrom::Start(value.offset as u64))
                     .unwrap();
 
+                // Read the entry struct from the index
                 let mut found_entry = Entry::from_reader(&mut file)?;
                 found_entry.mark_inactive();
 
                 println!("Found entry: {:?}", found_entry);
+
+                // Seek to the end
+                let _ = file
+                    .seek(std::io::SeekFrom::End(0))
+                    .unwrap();
+                
+                // Get the offset
+                let mut offset = self.offset.lock().unwrap();
+                // Get the new offset from our current position in the file
+                let current_offset = file.stream_position()? as usize;
+
+                // Update the entry in our index
+                let data = entry.as_bytes();
+                index.update(
+                    entry.key.clone(),
+                    IndexValue::new(get_micros_since_epoch(), 0, current_offset, data.len()),
+                );
+                // Write the data and update our writers offset
+                file.write_all(&data).unwrap();
+                *offset = current_offset;
+
+                println!("Create updated entry: {:?}", entry);
 
                 // TODO: Append to the log
             }
             Err(_) => {
                 println!("New entry: {:?}", entry);
 
-                let data = entry.as_bytes();
                 let mut current_offset = self.offset.lock().unwrap();
+                let data = entry.as_bytes();
                 index.update(
                     entry.key.clone(),
                     IndexValue::new(get_micros_since_epoch(), 0, *current_offset, data.len()),
@@ -337,14 +350,21 @@ mod tests {
     }
 
     #[test]
-    fn writer_can_write() {
+    fn writer_crud() {
         let mut writer = Writer::new("/tmp/yoted".to_string()).expect("Should open a writer");
 
         let key = "Hello".as_bytes().to_vec();
         let value = "Yoted".as_bytes().to_vec();
-        let entry = Entry::new(key, value);
+        let value2 = "I am new, and I am not old".as_bytes().to_vec();
+
+        let mut entry = Entry::new(key.clone(), value.clone());
         writer.insert(entry).expect("Can insert an entry");
 
-        
+        entry = Entry::new(key.clone(), value2.clone());
+        writer.insert(entry.clone()).expect("Can insert another entry");
+
+        let found_entry = writer.get(key.clone()).expect("Found the updated key from our log file");
+
+        assert_eq!(found_entry.value.clone(), value2.clone());
     }
 }
