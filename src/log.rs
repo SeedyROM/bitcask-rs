@@ -13,7 +13,7 @@
 //! ````
 
 use core::fmt;
-use std::{collections::HashMap, convert::TryInto, error::Error, fs::{File, OpenOptions}, io::{Read, Seek, Write}, sync::{Arc, Mutex}};
+use std::{collections::HashMap, convert::TryInto, error::Error, fs::{File, OpenOptions}, io::{Read, Seek, SeekFrom, Write}, sync::{Arc, Mutex}};
 
 use crc::{Crc, CRC_64_ECMA_182};
 
@@ -51,6 +51,7 @@ impl IndexValue {
 }
 
 /// Our in memory map of pointers to our log
+#[derive(Debug)]
 pub struct Index {
     keys: HashMap<Vec<u8>, IndexValue>,
 }
@@ -214,11 +215,16 @@ pub struct Writer {
 
 impl Writer {
     pub fn new(directory: String) -> Result<Self, Box<dyn std::error::Error>> {
-        let file = OpenOptions::new()
+        let mut file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .open(&directory)?;
+
+        let _ = file.seek(SeekFrom::Start(0));
+
+        // TODO: Reconstruct the data from disk
+        // TODO: WTF to do here lol
 
         Ok(Self {
             index: Arc::new(Mutex::new(Index::new())),
@@ -236,7 +242,7 @@ impl Writer {
             Ok(value) => {
                 // Seek to the found entry from the index
                 let _ = file
-                    .seek(std::io::SeekFrom::Start(value.offset as u64))
+                    .seek(SeekFrom::Start(value.offset as u64))
                     .unwrap();
 
                 // Read the entry struct from the index
@@ -247,7 +253,7 @@ impl Writer {
 
                 // Seek to the end
                 let _ = file
-                    .seek(std::io::SeekFrom::End(0))
+                    .seek(SeekFrom::End(0))
                     .unwrap();
                 
                 // Get the offset
@@ -279,7 +285,7 @@ impl Writer {
                     IndexValue::new(get_micros_since_epoch(), 0, *current_offset, data.len()),
                 );
                 file.write_all(&data).unwrap();
-                *current_offset += data.len();
+                *current_offset = file.stream_position()? as usize;
             }
         };
 
@@ -360,11 +366,20 @@ mod tests {
         let mut entry = Entry::new(key.clone(), value.clone());
         writer.insert(entry).expect("Can insert an entry");
 
+        // Insert a new index
+        entry = Entry::new(key.clone(), value.clone());
+        writer.insert(entry.clone()).expect("Can insert another entry");
+
+        // This should be ignored because it's the same value, maybe this is a bad idea?
         entry = Entry::new(key.clone(), value2.clone());
         writer.insert(entry.clone()).expect("Can insert another entry");
 
+        println!("{:?}", writer.index.lock().unwrap());
+
+        // Get the newest version of the entry
         let found_entry = writer.get(key.clone()).expect("Found the updated key from our log file");
 
+        // Make sure we read the right value from our log file
         assert_eq!(found_entry.value.clone(), value2.clone());
     }
 }
