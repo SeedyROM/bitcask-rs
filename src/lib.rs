@@ -1,7 +1,4 @@
-pub mod util;
 pub mod log;
+pub mod util;
 
-pub use crate::log::{
-    Writer,
-    Entry,
-};
+pub use crate::log::{Entry, Writer};

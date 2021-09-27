@@ -13,7 +13,14 @@
 //! ````
 
 use core::fmt;
-use std::{collections::HashMap, convert::TryInto, error::Error, fs::{File, OpenOptions}, io::{Read, Seek, SeekFrom, Write}, sync::{Arc, Mutex}};
+use std::{
+    collections::HashMap,
+    convert::TryInto,
+    error::Error,
+    fs::{File, OpenOptions},
+    io::{Read, Seek, SeekFrom, Write},
+    sync::{Arc, Mutex},
+};
 
 use crc::{Crc, CRC_64_ECMA_182};
 
@@ -242,9 +249,7 @@ impl Writer {
         match index.lookup(entry.key.clone()) {
             Ok(value) => {
                 // Seek to the found entry from the index
-                let _ = file
-                    .seek(SeekFrom::Start(value.offset as u64))
-                    .unwrap();
+                let _ = file.seek(SeekFrom::Start(value.offset as u64)).unwrap();
 
                 // Read the entry struct from the index, and then mark it inactive
                 let mut found_entry = Entry::from_reader(&mut file)?;
@@ -256,10 +261,8 @@ impl Writer {
                 log::trace!("Found and deactivated entry: {:?}", found_entry);
 
                 // Seek to the end
-                let _ = file
-                    .seek(SeekFrom::End(0))
-                    .unwrap();
-                
+                let _ = file.seek(SeekFrom::End(0)).unwrap();
+
                 // Get the offset
                 let mut offset = self.offset.lock().unwrap();
                 // Get the new offset from our current position in the file
@@ -269,30 +272,37 @@ impl Writer {
                 let data = entry.as_bytes();
                 index.update(
                     entry.key.clone(),
-                    IndexValue::new(get_micros_since_epoch(), 0, current_offset, data.len() as u64),
+                    IndexValue::new(
+                        get_micros_since_epoch(),
+                        0,
+                        current_offset,
+                        data.len() as u64,
+                    ),
                 );
                 // Write the data and update our writers offset
                 file.write_all(&data).unwrap();
                 *offset = current_offset;
 
                 log::trace!("Create updated entry: {:?}", entry);
-
-                // TODO: Append to the log
             }
+
             Err(_) => {
                 log::trace!("New entry: {:?}", entry);
 
                 // Jump to the offset
                 let mut current_offset = self.offset.lock().unwrap();
-                let _ = file
-                    .seek(SeekFrom::Start(*current_offset))
-                    .unwrap();
-                
+                let _ = file.seek(SeekFrom::Start(*current_offset)).unwrap();
+
                 // append our data
                 let data = entry.as_bytes();
                 index.update(
                     entry.key.clone(),
-                    IndexValue::new(get_micros_since_epoch(), 0, *current_offset, data.len() as u64),
+                    IndexValue::new(
+                        get_micros_since_epoch(),
+                        0,
+                        *current_offset,
+                        data.len() as u64,
+                    ),
                 );
                 file.write_all(&data).unwrap();
                 // Update the offset
@@ -377,27 +387,39 @@ mod tests {
         let key3 = "Joyous".as_bytes().to_vec();
         let value = "Jinkies".as_bytes().to_vec();
         let value2 = "I am new, and I am not old".as_bytes().to_vec();
-        let value3 = "I am older, and I am not deeper than new".as_bytes().to_vec();
+        let value3 = "I am older, and I am not deeper than new"
+            .as_bytes()
+            .to_vec();
 
         let mut entry = Entry::new(key.clone(), value.clone());
         writer.insert(entry).expect("Can insert an entry");
 
         // Insert a new index
         entry = Entry::new(key2.clone(), value2.clone());
-        writer.insert(entry.clone()).expect("Can insert another entry");
+        writer
+            .insert(entry.clone())
+            .expect("Can insert another entry");
 
         // // This should be ignored because it's the same value, maybe this is a bad idea?
         entry = Entry::new(key3.clone(), value3.clone());
-        writer.insert(entry.clone()).expect("Can insert another * 3 entry");
+        writer
+            .insert(entry.clone())
+            .expect("Can insert another * 3 entry");
 
         // Get the newest version of the entry
-        let mut found_entry = writer.get(key.clone()).expect("Found the updated key from our log file");
+        let mut found_entry = writer
+            .get(key.clone())
+            .expect("Found the updated key from our log file");
         assert_eq!(found_entry.value.clone(), value.clone());
 
-        found_entry = writer.get(key2.clone()).expect("Found the updated key from our log file");
+        found_entry = writer
+            .get(key2.clone())
+            .expect("Found the updated key from our log file");
         assert_eq!(found_entry.value.clone(), value2.clone());
 
-        found_entry = writer.get(key3.clone()).expect("Found the updated key from our log file");
+        found_entry = writer
+            .get(key3.clone())
+            .expect("Found the updated key from our log file");
         assert_eq!(found_entry.value.clone(), value3.clone());
     }
 }
