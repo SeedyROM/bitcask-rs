@@ -221,7 +221,11 @@ pub struct Writer {
 
 impl Writer {
     pub fn new(directory: String) -> Result<Self, Box<dyn std::error::Error>> {
-        let file = OpenOptions::new().read(true).write(true).open(&directory)?;
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&directory)?;
 
         Ok(Self {
             index: Arc::new(Mutex::new(Index::new())),
@@ -249,6 +253,8 @@ impl Writer {
                 found_entry.mark_inactive();
 
                 println!("Found entry: {:?}", found_entry);
+
+                // TODO: Append to the log
             }
             Err(_) => {
                 println!("New entry: {:?}", entry);
