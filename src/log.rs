@@ -28,6 +28,7 @@ use crate::util::{self, get_micros_since_epoch};
 
 /// A seek only pointer into our logs
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
+// TODO: I should store the CRC in the index, how else would ti work?
 pub struct IndexValue {
     timestamp: u128,
     file_id: usize,
@@ -407,7 +408,9 @@ mod tests {
             .expect("Can insert another * 3 entry");
 
         // Get the newest version of the entry
-        let mut found_entry = writer
+        let mut found_entry: Entry;
+        
+        found_entry = writer
             .get(key.clone())
             .expect("Found the updated key from our log file");
         assert_eq!(found_entry.value.clone(), value.clone());
@@ -421,5 +424,10 @@ mod tests {
             .get(key3.clone())
             .expect("Found the updated key from our log file");
         assert_eq!(found_entry.value.clone(), value3.clone());
+
+        found_entry = writer
+            .get(key2.clone())
+            .expect("Found the updated key from our log file");
+        assert_eq!(found_entry.value.clone(), value2.clone());
     }
 }
