@@ -208,7 +208,7 @@ impl Entry {
 pub struct Writer {
     index: Arc<Mutex<Index>>,
     file: Arc<Mutex<File>>,
-    offset: Arc<Mutex<u64>>,
+    pub offset: Arc<Mutex<u64>>,
     #[allow(dead_code)]
     directory: String,
 }
@@ -282,14 +282,21 @@ impl Writer {
             Err(_) => {
                 log::trace!("New entry: {:?}", entry);
 
+                // Jump to the offset
                 let mut current_offset = self.offset.lock().unwrap();
+                let _ = file
+                    .seek(SeekFrom::Start(*current_offset))
+                    .unwrap();
+                
+                // append our data
                 let data = entry.as_bytes();
                 index.update(
                     entry.key.clone(),
                     IndexValue::new(get_micros_since_epoch(), 0, *current_offset, data.len() as u64),
                 );
                 file.write_all(&data).unwrap();
-                *current_offset = file.stream_position()?;
+                // Update the offset
+                *current_offset += data.len() as u64;
             }
         };
 
@@ -366,6 +373,8 @@ mod tests {
         let mut writer = Writer::new("/tmp/db".to_string()).expect("Should open a writer");
 
         let key = "Hello".as_bytes().to_vec();
+        let key2 = "Yump".as_bytes().to_vec();
+        let key3 = "Joyous".as_bytes().to_vec();
         let value = "Jinkies".as_bytes().to_vec();
         let value2 = "I am new, and I am not old".as_bytes().to_vec();
         let value3 = "I am older, and I am not deeper than new".as_bytes().to_vec();
@@ -374,17 +383,21 @@ mod tests {
         writer.insert(entry).expect("Can insert an entry");
 
         // Insert a new index
-        entry = Entry::new(key.clone(), value2.clone());
+        entry = Entry::new(key2.clone(), value2.clone());
         writer.insert(entry.clone()).expect("Can insert another entry");
 
         // // This should be ignored because it's the same value, maybe this is a bad idea?
-        entry = Entry::new(key.clone(), value3.clone());
+        entry = Entry::new(key3.clone(), value3.clone());
         writer.insert(entry.clone()).expect("Can insert another * 3 entry");
 
         // Get the newest version of the entry
-        let found_entry = writer.get(key.clone()).expect("Found the updated key from our log file");
+        let mut found_entry = writer.get(key.clone()).expect("Found the updated key from our log file");
+        assert_eq!(found_entry.value.clone(), value.clone());
 
-        // Make sure we read the right value from our log file
+        found_entry = writer.get(key2.clone()).expect("Found the updated key from our log file");
+        assert_eq!(found_entry.value.clone(), value2.clone());
+
+        found_entry = writer.get(key3.clone()).expect("Found the updated key from our log file");
         assert_eq!(found_entry.value.clone(), value3.clone());
     }
 }
