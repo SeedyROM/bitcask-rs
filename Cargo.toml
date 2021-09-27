@@ -4,15 +4,16 @@ version = "0.1.0"
 authors = ["Zack Kollar <rallokkcaz@gmail.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 crc = "2.0.0"
 lazy_static = "1.4.0"
-tokio = { version = "1.12.0", features = ["full"] }
 
-[dev-dependencies]
+[dependencies.tokio]
+version = "1.12.0"
+features = ["full"]
 
+
+# Commit and push hooks
 [dev-dependencies.cargo-husky]
 version = "1"
 default-features = false
