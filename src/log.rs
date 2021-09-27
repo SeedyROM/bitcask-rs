@@ -204,12 +204,12 @@ impl Entry {
     }
 }
 
-#[allow(dead_code)]
 /// Writes append only data to our log file and manages stale data
 pub struct Writer {
     index: Arc<Mutex<Index>>,
     file: Arc<Mutex<File>>,
     offset: Arc<Mutex<u64>>,
+    #[allow(dead_code)]
     directory: String,
 }
 
@@ -348,7 +348,7 @@ mod tests {
     #[test]
     fn entry_checksums() {
         let key = "Hello".as_bytes().to_vec();
-        let value = "Yoted".as_bytes().to_vec();
+        let value = "Bloated".as_bytes().to_vec();
         let mut entry = Entry::new(key.clone(), value);
         let mut other_entry = Entry::new(key, "Toted".as_bytes().to_vec());
 
