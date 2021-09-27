@@ -2,7 +2,6 @@ sudo: true
 language: rust
 rust:
     - stable
-    - 1.50.0  # Min Rust Version
     - beta
     - nightly
 
