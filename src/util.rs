@@ -9,3 +9,10 @@ pub fn get_micros_since_epoch() -> u128 {
     .unwrap()
     .as_micros()
 }
+
+// Our global test initialize
+#[cfg(test)]
+#[ctor::ctor]
+fn test_init() {
+    env_logger::init();
+}

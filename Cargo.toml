@@ -6,11 +6,16 @@ edition = "2018"
 
 [dependencies]
 crc = "2.0.0"
+env_logger = "0.9.0"
 lazy_static = "1.4.0"
+log = "0.4.14"
 
 [dependencies.tokio]
 version = "1.12.0"
 features = ["full"]
+
+[dev-dependencies]
+ctor = "0.1.21"
 
 # Commit and push hooks
 [dev-dependencies.cargo-husky]

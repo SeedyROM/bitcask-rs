@@ -243,7 +243,7 @@ impl Writer {
                 let mut found_entry = Entry::from_reader(&mut file)?;
                 found_entry.mark_inactive();
 
-                println!("Found entry: {:?}", found_entry);
+                log::trace!("Found entry: {:?}", found_entry);
 
                 // Seek to the end
                 let _ = file
@@ -265,12 +265,12 @@ impl Writer {
                 file.write_all(&data).unwrap();
                 *offset = current_offset;
 
-                println!("Create updated entry: {:?}", entry);
+                log::trace!("Create updated entry: {:?}", entry);
 
                 // TODO: Append to the log
             }
             Err(_) => {
-                println!("New entry: {:?}", entry);
+                log::trace!("New entry: {:?}", entry);
 
                 let mut current_offset = self.offset.lock().unwrap();
                 let data = entry.as_bytes();
