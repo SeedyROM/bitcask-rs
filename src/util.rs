@@ -1,4 +1,4 @@
-//! Simple global utilities
+//! ⚙️ Simple global utilities
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -10,7 +10,7 @@ pub fn get_micros_since_epoch() -> u128 {
         .as_micros()
 }
 
-// Our global test initialize
+/// Our global test initialization helper, only run when the environment is testing
 #[cfg(test)]
 #[ctor::ctor]
 fn test_init() {

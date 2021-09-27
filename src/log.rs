@@ -64,7 +64,7 @@ pub struct Index {
     keys: HashMap<Vec<u8>, IndexValue>,
 }
 
-/// The key in our index was not found
+/// Describe if the key in our index was not found
 #[derive(Debug)]
 pub struct IndexKeyNotFoundError(Vec<u8>);
 impl Error for IndexKeyNotFoundError {}
@@ -98,7 +98,7 @@ impl Index {
 /// CRC64 digester
 pub const CRC: Crc<u64> = Crc::<u64>::new(&CRC_64_ECMA_182);
 
-/// An entry in our log which can be read and written to our log
+/// An entry in our log which can be read and written to it
 #[derive(Debug, Clone)]
 pub struct Entry {
     checksum: Option<u64>,
@@ -138,7 +138,7 @@ impl Entry {
         new_entry
     }
 
-    // Get the checksum of or struct by digesting all the bytes besides the CRC itself
+    /// Get the checksum of or struct by digesting all the bytes besides the CRC itself
     pub fn calculate_checksum(&mut self) -> u64 {
         let mut digest = CRC.digest();
 
@@ -212,7 +212,7 @@ impl Entry {
     }
 }
 
-/// Writes append only data to our log file and manages stale data
+/// Writes append data only to our log file and manages stale data
 pub struct Writer {
     index: Arc<Mutex<Index>>,
     file: Arc<Mutex<File>>,
