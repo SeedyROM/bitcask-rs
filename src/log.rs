@@ -2,6 +2,8 @@
 //!
 //! ## Example:
 //! ```
+//! use bitcask::log::*;
+//!
 //! let mut writer = Writer::new("/tmp/yoted".to_string()).expect("Should open a writer");
 //!
 //! let key = "Hello".as_bytes().to_vec();
@@ -11,11 +13,18 @@
 //! ````
 
 use core::fmt;
-use std::{collections::HashMap, convert::TryInto, error::Error, fs::{File, OpenOptions}, io::{Read, Seek, Write}, sync::{Arc, Mutex}};
+use std::{
+    collections::HashMap,
+    convert::TryInto,
+    error::Error,
+    fs::{File, OpenOptions},
+    io::{Read, Seek, Write},
+    sync::{Arc, Mutex},
+};
 
 use crc::{Crc, CRC_64_ECMA_182};
 
-use crate::util;
+use crate::util::{self, get_micros_since_epoch};
 
 /// A seek only pointer into our logs
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
@@ -158,14 +167,14 @@ impl Entry {
     }
 
     /// Takes in a file and from the specific offset retrieves and builds an Entry struct
-    pub fn from_reader(file: &mut File) -> Result<Self, Box<dyn std::error::Error>>  {
+    pub fn from_reader(file: &mut File) -> Result<Self, Box<dyn std::error::Error>> {
         let mut buf: [u8; 64] = [0; 64];
 
         file.read(&mut buf[0..8])?;
         let checksum = u64::from_le_bytes(buf[0..8].try_into().unwrap());
-        
+
         file.read(&mut buf[0..1])?;
-        let active = if  buf[0] == 1 { true } else { false }; 
+        let active = if buf[0] == 1 { true } else { false };
 
         file.read(&mut buf[0..16])?;
         let timestamp = u128::from_le_bytes(buf[0..16].try_into().unwrap());
@@ -184,17 +193,15 @@ impl Entry {
         file.read(&mut key[0..key_size])?;
         file.read(&mut value[0..value_size])?;
 
-        Ok(
-            Entry {
-                checksum,
-                active,
-                timestamp,
-                key_size,
-                value_size,
-                key,
-                value
-            }
-        )
+        Ok(Entry {
+            checksum,
+            active,
+            timestamp,
+            key_size,
+            value_size,
+            key,
+            value,
+        })
     }
 
     /// Mark the entry as inactive so we can compact it later
@@ -208,27 +215,24 @@ impl Entry {
 pub struct Writer {
     index: Arc<Mutex<Index>>,
     file: Arc<Mutex<File>>,
+    offset: Arc<Mutex<usize>>,
     directory: String,
 }
 
 impl Writer {
     pub fn new(directory: String) -> Result<Self, Box<dyn std::error::Error>> {
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(&directory)?;
-    
-        Ok(
-            Self {
-                index: Arc::new(Mutex::new(Index::new())),
-                file: Arc::new(Mutex::new(file)),
-                directory,
-            }
-        )
+        let file = OpenOptions::new().read(true).write(true).open(&directory)?;
+
+        Ok(Self {
+            index: Arc::new(Mutex::new(Index::new())),
+            file: Arc::new(Mutex::new(file)),
+            directory,
+            offset: Arc::new(Mutex::new(0)),
+        })
     }
 
-    pub fn insert(&mut self, entry: Entry) -> Result<(), Box<dyn std::error::Error>> {
-        let index = self.index.lock().unwrap();
+    pub fn insert(&mut self, mut entry: Entry) -> Result<(), Box<dyn std::error::Error>> {
+        let mut index = self.index.lock().unwrap();
         let mut file = self.file.lock().unwrap();
 
         // let data = entry.as_bytes();
@@ -237,20 +241,36 @@ impl Writer {
 
         match index.lookup(entry.key.clone()) {
             Ok(value) => {
-                let _ = file.seek(std::io::SeekFrom::Start(value.offset as u64)).unwrap();
-                
+                let _ = file
+                    .seek(std::io::SeekFrom::Start(value.offset as u64))
+                    .unwrap();
+
                 let mut found_entry = Entry::from_reader(&mut file)?;
                 found_entry.mark_inactive();
 
                 println!("Found entry: {:?}", found_entry);
-
-            },
+            }
             Err(_) => {
                 println!("New entry: {:?}", entry);
 
-                file.write_all(&entry.clone().as_bytes()).unwrap();
+                let data = entry.as_bytes();
+                let mut current_offset = self.offset.lock().unwrap();
+                index.update(
+                    entry.key.clone(),
+                    IndexValue::new(get_micros_since_epoch(), 0, *current_offset, data.len()),
+                );
+                file.write_all(&data).unwrap();
+                *current_offset += data.len();
             }
         };
+
+        Ok(())
+    }
+
+    pub fn get(&mut self, key: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+        let index = self.index.lock().unwrap();
+        let mut _file = self.file.lock().unwrap();
+        let _index_entry = index.lookup(key)?;
 
         Ok(())
     }
@@ -264,11 +284,15 @@ mod tests {
     fn index_update() {
         let mut index = Index::new();
         assert_eq!(
-            index.update(vec![0, 1, 2, 3, 4], IndexValue::new(0, 0, 5, 0)).is_none(),
+            index
+                .update(vec![0, 1, 2, 3, 4], IndexValue::new(0, 0, 5, 0))
+                .is_none(),
             true
         );
         assert_eq!(
-            index.update(vec![0, 1, 2, 3, 4], IndexValue::new(0, 0, 10, 100)).is_some(),
+            index
+                .update(vec![0, 1, 2, 3, 4], IndexValue::new(0, 0, 10, 100))
+                .is_some(),
             true
         );
     }
@@ -276,10 +300,7 @@ mod tests {
     #[test]
     fn index_lookup() {
         let mut index = Index::new();
-        assert_eq!(
-            index.lookup(vec![0, 1, 2, 3, 4]).is_err(),
-            true,
-        );
+        assert_eq!(index.lookup(vec![0, 1, 2, 3, 4]).is_err(), true,);
         index.update(vec![0, 1, 2, 3, 4], IndexValue::new(0, 0, 5, 0));
         assert_eq!(
             index.lookup(vec![0, 1, 2, 3, 4]).unwrap(),
@@ -294,11 +315,9 @@ mod tests {
         let mut entry = Entry::new(key.clone(), value);
         let mut other_entry = Entry::new(key, "Toted".as_bytes().to_vec());
 
-        println!("{:?}", entry.as_bytes());
-
-        // Compare to another object 
+        // Compare to another object
         let checksum = entry.calculate_checksum();
-        assert_ne!(checksum, other_entry.calculate_checksum());   
+        assert_ne!(checksum, other_entry.calculate_checksum());
 
         // Change the entry and compare the checksums
         entry.key = "I CHANGED!".as_bytes().to_vec();

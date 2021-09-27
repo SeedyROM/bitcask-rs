@@ -1,2 +1,4 @@
 pub mod util;
-pub mod bitcask;
+pub mod log;
+
+pub use log::*;
