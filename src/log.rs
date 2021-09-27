@@ -1,7 +1,7 @@
 //! 🍻 A bit cask implementation for Rust.
 //!
 //! ## Example:
-//! ```
+//! ```no_run
 //! use bitcask::log::*;
 //!
 //! let mut writer = Writer::new("/tmp/db".to_string()).expect("Should open a writer");
@@ -244,9 +244,12 @@ impl Writer {
                     .seek(SeekFrom::Start(value.offset as u64))
                     .unwrap();
 
-                // Read the entry struct from the index
+                // Read the entry struct from the index, and then mark it inactive
                 let mut found_entry = Entry::from_reader(&mut file)?;
                 found_entry.mark_inactive();
+                let found_data_size: i64 = found_entry.as_bytes().to_vec().len() as i64;
+                let _ = file.seek(SeekFrom::Current(-found_data_size))?;
+                file.write_all(&found_entry.as_bytes().to_vec()).unwrap();
 
                 log::trace!("Found entry: {:?}", found_entry);
 
@@ -359,7 +362,7 @@ mod tests {
         let mut writer = Writer::new("/tmp/db".to_string()).expect("Should open a writer");
 
         let key = "Hello".as_bytes().to_vec();
-        let value = "Yoted".as_bytes().to_vec();
+        let value = "Jinkies".as_bytes().to_vec();
         let value2 = "I am new, and I am not old".as_bytes().to_vec();
 
         let mut entry = Entry::new(key.clone(), value.clone());
@@ -371,7 +374,7 @@ mod tests {
 
         // // This should be ignored because it's the same value, maybe this is a bad idea?
         entry = Entry::new(key.clone(), value2.clone());
-        writer.insert(entry.clone()).expect("Can insert another entry");
+        writer.insert(entry.clone()).expect("Can insert another * 2 entry");
 
         // Get the newest version of the entry
         let found_entry = writer.get(key.clone()).expect("Found the updated key from our log file");
