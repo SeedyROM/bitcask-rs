@@ -24,8 +24,8 @@ use crate::util::{self, get_micros_since_epoch};
 pub struct IndexValue {
     timestamp: u128,
     file_id: usize,
-    offset: usize,
-    size: usize,
+    offset: u64,
+    size: u64,
 }
 
 impl Ord for IndexValue {
@@ -40,7 +40,7 @@ impl PartialOrd for IndexValue {
 }
 
 impl IndexValue {
-    pub fn new(timestamp: u128, file_id: usize, offset: usize, size: usize) -> Self {
+    pub fn new(timestamp: u128, file_id: usize, offset: u64, size: u64) -> Self {
         Self {
             timestamp,
             file_id,
@@ -209,7 +209,7 @@ impl Entry {
 pub struct Writer {
     index: Arc<Mutex<Index>>,
     file: Arc<Mutex<File>>,
-    offset: Arc<Mutex<usize>>,
+    offset: Arc<Mutex<u64>>,
     directory: String,
 }
 
@@ -263,13 +263,13 @@ impl Writer {
                 // Get the offset
                 let mut offset = self.offset.lock().unwrap();
                 // Get the new offset from our current position in the file
-                let current_offset = file.stream_position()? as usize;
+                let current_offset = file.stream_position()?;
 
                 // Update the entry in our index
                 let data = entry.as_bytes();
                 index.update(
                     entry.key.clone(),
-                    IndexValue::new(get_micros_since_epoch(), 0, current_offset, data.len()),
+                    IndexValue::new(get_micros_since_epoch(), 0, current_offset, data.len() as u64),
                 );
                 // Write the data and update our writers offset
                 file.write_all(&data).unwrap();
@@ -286,10 +286,10 @@ impl Writer {
                 let data = entry.as_bytes();
                 index.update(
                     entry.key.clone(),
-                    IndexValue::new(get_micros_since_epoch(), 0, *current_offset, data.len()),
+                    IndexValue::new(get_micros_since_epoch(), 0, *current_offset, data.len() as u64),
                 );
                 file.write_all(&data).unwrap();
-                *current_offset = file.stream_position()? as usize;
+                *current_offset = file.stream_position()?;
             }
         };
 
