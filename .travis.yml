@@ -15,3 +15,7 @@ matrix:
         - cargo install --version $GHP_UPLOAD_VERSION cargo-ghp-upload
     script:
         - cargo doc --verbose --no-deps && cargo ghp-upload -vv
+
+script:
+- cargo build --verbose
+- cargo test --verbose
