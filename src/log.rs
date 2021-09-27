@@ -162,7 +162,7 @@ impl Entry {
 
     /// Takes in a file and from the specific offset retrieves and builds an Entry struct
     pub fn from_reader(file: &mut File) -> Result<Self, Box<dyn std::error::Error>> {
-        let mut buf: [u8; 64] = [0; 64];
+        let mut buf: [u8; 16] = [0; 16]; // Max non dynamic field size is 16 bytes, use this
 
         file.read(&mut buf[0..8])?;
         let checksum = u64::from_le_bytes(buf[0..8].try_into().unwrap());
@@ -214,6 +214,7 @@ pub struct Writer {
 }
 
 impl Writer {
+    /// Create a new writer with a given "directory" (it's a file for now...)
     pub fn new(directory: String) -> Result<Self, Box<dyn std::error::Error>> {
         let file = OpenOptions::new()
             .read(true)
@@ -233,6 +234,7 @@ impl Writer {
         })
     }
 
+    /// Insert an entry into our writer IO
     pub fn insert(&mut self, mut entry: Entry) -> Result<(), Box<dyn std::error::Error>> {
         let mut index = self.index.lock().unwrap();
         let mut file = self.file.lock().unwrap();
@@ -251,7 +253,7 @@ impl Writer {
                 let _ = file.seek(SeekFrom::Current(-found_data_size))?;
                 file.write_all(&found_entry.as_bytes().to_vec()).unwrap();
 
-                log::trace!("Found entry: {:?}", found_entry);
+                log::trace!("Found and deactivated entry: {:?}", found_entry);
 
                 // Seek to the end
                 let _ = file
@@ -294,6 +296,8 @@ impl Writer {
         Ok(())
     }
 
+    /// Get an entry from the writer
+    // TODO: This should probably be called something else?
     pub fn get(&mut self, key: Vec<u8>) -> Result<Entry, Box<dyn std::error::Error>> {
         let index = self.index.lock().unwrap();
         let mut file = self.file.lock().unwrap();
@@ -364,6 +368,7 @@ mod tests {
         let key = "Hello".as_bytes().to_vec();
         let value = "Jinkies".as_bytes().to_vec();
         let value2 = "I am new, and I am not old".as_bytes().to_vec();
+        let value3 = "I am older, and I am not deeper than new".as_bytes().to_vec();
 
         let mut entry = Entry::new(key.clone(), value.clone());
         writer.insert(entry).expect("Can insert an entry");
@@ -373,13 +378,13 @@ mod tests {
         writer.insert(entry.clone()).expect("Can insert another entry");
 
         // // This should be ignored because it's the same value, maybe this is a bad idea?
-        entry = Entry::new(key.clone(), value2.clone());
-        writer.insert(entry.clone()).expect("Can insert another * 2 entry");
+        entry = Entry::new(key.clone(), value3.clone());
+        writer.insert(entry.clone()).expect("Can insert another * 3 entry");
 
         // Get the newest version of the entry
         let found_entry = writer.get(key.clone()).expect("Found the updated key from our log file");
 
         // Make sure we read the right value from our log file
-        assert_eq!(found_entry.value.clone(), value2.clone());
+        assert_eq!(found_entry.value.clone(), value3.clone());
     }
 }
