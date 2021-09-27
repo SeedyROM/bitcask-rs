@@ -101,10 +101,10 @@ pub const CRC: Crc<u64> = Crc::<u64>::new(&CRC_64_ECMA_182);
 /// An entry in our log which can be read and written to our log
 #[derive(Debug, Clone)]
 pub struct Entry {
-    checksum: u64,
+    checksum: Option<u64>,
     active: bool,
 
-    timestamp: u128,
+    timestamp: u128, // TODO: This should probably be an Option<u128> since entries can be created before they're consumed
     key_size: usize,
     value_size: usize,
 
@@ -123,7 +123,7 @@ impl Entry {
         let value = value;
 
         let mut new_entry = Self {
-            checksum: 0,
+            checksum: None,
             active,
             timestamp,
             key_size,
@@ -133,7 +133,7 @@ impl Entry {
         };
 
         // Calculate the checksum of our entry
-        new_entry.checksum = new_entry.calculate_checksum();
+        new_entry.checksum = Some(new_entry.calculate_checksum());
 
         new_entry
     }
@@ -157,7 +157,7 @@ impl Entry {
         let mut data: Vec<u8> = Vec::new();
         let mut active = if self.active { vec![1] } else { vec![0] };
 
-        data.append(&mut self.checksum.to_le_bytes().to_vec());
+        data.append(&mut self.checksum.unwrap().to_le_bytes().to_vec());
         data.append(&mut active);
         data.append(&mut self.timestamp.to_le_bytes().to_vec());
         data.append(&mut self.key_size.to_le_bytes().to_vec());
@@ -196,7 +196,7 @@ impl Entry {
         file.read(&mut value[0..value_size])?;
 
         Ok(Entry {
-            checksum,
+            checksum: Some(checksum),
             active,
             timestamp,
             key_size,
@@ -409,7 +409,7 @@ mod tests {
 
         // Get the newest version of the entry
         let mut found_entry: Entry;
-        
+
         found_entry = writer
             .get(key.clone())
             .expect("Found the updated key from our log file");

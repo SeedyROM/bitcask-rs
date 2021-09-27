@@ -1,5 +1,7 @@
 {
   "cSpell.words": [
     "Jinkies"
-  ]
+  ],
+  "editor.formatOnSave": true,
+  "editor.formatOnPaste": true
 }
