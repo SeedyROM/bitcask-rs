@@ -10,7 +10,7 @@ cache:
     cargo: true
 matrix:
     include:
-        - env: GHP_UPLOAD_VERSION=0.3.2
+    - env: GHP_UPLOAD_VERSION=0.3.2
     install:
         - cargo install --version $GHP_UPLOAD_VERSION cargo-ghp-upload
     script:
