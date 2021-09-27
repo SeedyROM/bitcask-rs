@@ -273,12 +273,18 @@ impl Writer {
         Ok(())
     }
 
-    pub fn get(&mut self, key: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn get(&mut self, key: Vec<u8>) -> Result<Entry, Box<dyn std::error::Error>> {
         let index = self.index.lock().unwrap();
-        let mut _file = self.file.lock().unwrap();
-        let _index_entry = index.lookup(key)?;
+        let mut file = self.file.lock().unwrap();
+        let index_entry = index.lookup(key)?;
 
-        Ok(())
+        let _ = file
+            .seek(std::io::SeekFrom::Start(index_entry.offset as u64))
+            .unwrap();
+
+        let found_entry = Entry::from_reader(&mut file)?;
+
+        Ok(found_entry)
     }
 }
 
@@ -338,5 +344,7 @@ mod tests {
         let value = "Yoted".as_bytes().to_vec();
         let entry = Entry::new(key, value);
         writer.insert(entry).expect("Can insert an entry");
+
+        
     }
 }
